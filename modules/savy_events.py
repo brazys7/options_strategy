@@ -10,11 +10,17 @@ def fetch_earnings(from_date):
     earnings = response.json()
 
     after_close = [
-        entry for entry in earnings.get(from_date, []) if datetime.strptime(entry['earningsTime'], "%H:%M:%S").time() >= datetime.strptime("15:00:00", "%H:%M:%S").time()
+        entry
+        for entry in earnings.get(from_date, [])
+        if datetime.strptime(entry["earningsTime"], "%H:%M:%S").time()
+        >= datetime.strptime("15:00:00", "%H:%M:%S").time()
     ]
 
     before_open = [
-        entry for entry in earnings.get(to_date.strftime("%Y-%m-%d"), []) if datetime.strptime(entry['earningsTime'], "%H:%M:%S").time() < datetime.strptime("15:00:00", "%H:%M:%S").time()
-    ]   
-    
+        entry
+        for entry in earnings.get(to_date.strftime("%Y-%m-%d"), [])
+        if datetime.strptime(entry["earningsTime"], "%H:%M:%S").time()
+        < datetime.strptime("15:00:00", "%H:%M:%S").time()
+    ]
+
     return after_close + before_open
