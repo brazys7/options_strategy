@@ -83,7 +83,7 @@ def build_term_structure(days, ivs):
 
 def get_current_price(ticker):
     todays_data = ticker.history(period='1d')
-    return todays_data['Close'][0]
+    return todays_data['Close'].iloc[0]
 
 def compute_recommendation(ticker):
     try:

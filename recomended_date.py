@@ -11,9 +11,10 @@ Always consult a professional financial advisor before making any investment dec
 import FreeSimpleGUI as sg
 import threading
 import yfinance as yf
+import time
 from datetime import datetime, timedelta
 
-from modules.events_fetcher import fetch_earnings
+from modules.savy_events import fetch_earnings
 from modules.validator import compute_recommendation
 from modules.decision_taker import take_decision
 
@@ -21,7 +22,7 @@ from modules.decision_taker import take_decision
 def main_gui():
     main_layout = [
         [sg.Text("Enter Date:"), 
-         sg.Input(key="date", size=(20, 1), disabled=True),  # Disabled input to avoid manual typing
+         sg.Input(key="date", default_text=datetime.today().strftime("%Y-%m-%d"), size=(20, 1), disabled=True),  # Disabled input to avoid manual typing
          sg.CalendarButton("Pick Date", target="date", format="%Y-%m-%d", close_when_date_chosen=True, locale='en_US')],
         [sg.Button("Submit", bind_return_key=True), sg.Button("Exit")],
         [sg.Multiline("", key="output", size=(50, 1), text_color="green", disabled=True, autoscroll=True)]  
@@ -39,44 +40,46 @@ def main_gui():
 
             if not selected_date:
                 window["output"].update("Please select a date!", text_color="red")
-                continue
+                continue            
 
-            # next_day = selected_date + timedelta(days=1)
-            next_day = datetime.strptime(selected_date, "%Y-%m-%d").date() + timedelta(days=1)
-
-            earnings = fetch_earnings(selected_date, next_day.strftime("%Y-%m-%d"))
+            earnings = fetch_earnings(selected_date)
 
             if not earnings:
                 window["output"].update("No earnings found for the selected date!", text_color="red")
                 continue
 
-            tickers = [entry['symbol'] for entry in earnings]
-            
-            recommendations = yf.Tickers(tickers)
-            # def process_entry(entry):
-            #     try:
-            #         symbol = entry['symbol']
+            def process_entry(entry):
+                try:
+                    symbol = entry['symbol']
 
-            #         if symbol == "TGT":
-            #             print("Processing TGT")
+                    recommendation = compute_recommendation(symbol)
+                    entry['recommendation'] = recommendation
+                    entry['decision'] = take_decision(recommendation) 
+                except Exception as e:
+                    # entry['recommendation'] = "ERROR"
+                    # entry['decision'] = "ERROR"
+                    print(f"Error processing {entry['symbol']}: {e}")   
+           
 
-            #         recommendation = compute_recommendation(symbol)
-            #         entry['recommendation'] = recommendation
-            #         entry['decision'] = take_decision(recommendation) 
-            #     except Exception as e:
-            #         # entry['recommendation'] = "ERROR"
-            #         # entry['decision'] = "ERROR"
-            #         print(f"Error processing {entry['symbol']}: {e}")                    
+            BATCH_SIZE = 40  # Number of tickers per batch
+            WAIT_TIME = 3  # Time (seconds) to wait between batches
 
-            # threads = []
+            for i in range(0, len(earnings), BATCH_SIZE):
+                batch = earnings[i:i + BATCH_SIZE]  # Get the current batch
+                
+                threads = []
+                
+                for entry in batch:
+                    thread = threading.Thread(target=process_entry, args=(entry,))
+                    threads.append(thread)
+                    thread.start()
 
-            # for entry in earnings:
-            #     thread = threading.Thread(target=process_entry, args=(entry,))
-            #     threads.append(thread)
-            #     thread.start()
+                # Wait for all threads in the batch to complete
+                for thread in threads:
+                    thread.join()
 
-            # for thread in threads:
-            #     thread.join()
+                print(f"Batch {i//BATCH_SIZE + 1} completed, waiting {WAIT_TIME} seconds...")
+                time.sleep(WAIT_TIME)  # Prevent rate limiting
                    
 
             recommended_tickers = [
@@ -84,9 +87,16 @@ def main_gui():
                 for entry in earnings if entry.get('decision') == "RECOMMEND"                
             ]
 
-            tickers_str = "\n".join(recommended_tickers)
+            other_tickers = [
+                f"{entry['symbol']}"                
+                for entry in earnings if entry.get('decision') != "RECOMMEND"                
+            ]
 
-            new_height = len(recommended_tickers) + 1
+            all_tickers = recommended_tickers + ["______"] + other_tickers
+
+            tickers_str = "\n".join(all_tickers)
+
+            new_height = len(all_tickers) + 1
 
             window["output"].update(f"Earnings found for the selected date:\n{tickers_str}")
             window["output"].Widget.config(height=new_height)
