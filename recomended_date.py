@@ -14,8 +14,9 @@ import time
 from datetime import datetime, timedelta
 
 from modules.savy_events import fetch_earnings
-from modules.validator import compute_recommendation
+
 from modules.decision_taker import take_decision
+from modules.validator import compute_recommendation
 
 
 def main_gui():
@@ -108,7 +109,7 @@ def main_gui():
                 time.sleep(WAIT_TIME)  # Prevent rate limiting
 
             recommended_tickers = [
-                f"{entry['symbol']} - {entry['recommendation'].get('expected_move', 'N/A')} - {entry['recommendation'].get('decision', 'N/A')} - {entry['recommendation'].get('strategy', 'N/A')}"
+                f"{entry['symbol']} ({entry['recommendation'].get('market_cap')}B) - IV:{entry['recommendation'].get('iv30_rv30_value')}% - ({entry['recommendation'].get('ts_slope_0_45_value')}%)  - {entry['recommendation'].get('expected_move', 'N/A')}% - {entry['recommendation'].get('expiration', 'N/A')}D, {entry['recommendation'].get('strategy', 'N/A')}"
                 for entry in earnings
                 if entry.get("decision") == "RECOMMEND"
             ]

@@ -90,7 +90,7 @@ def determine_calendar_strategy(call_iv, put_iv, ts_slope_0_45, iv30_rv30, vix_l
     elif call_iv - put_iv > 0.02:
         strategy = "C"
     else:
-        strategy = ""
+        strategy = "N/A"
 
     if ts_slope_0_45 < -0.004 or iv30_rv30 > 1.5:
         longer_expiration = 60
@@ -206,13 +206,18 @@ def compute_recommendation(ticker, vix):
             call_iv, put_iv, ts_slope_0_45, iv30_rv30, vix
         )
 
+        market_cap_b = round(stock.info.get("marketCap", 0) / 1000000000, 2)
+
         return {
             "avg_volume": avg_volume >= 1500000,
             "iv30_rv30": iv30_rv30 >= 1.25,
+            "iv30_rv30_value": round(iv30_rv30, 3),
             "ts_slope_0_45": ts_slope_0_45 <= -0.00406,
+            "ts_slope_0_45_value": round(ts_slope_0_45, 3),
             "expected_move": expected_move,
             "strategy": best_strategy,
             "expiration": best_expiration,
+            "market_cap": market_cap_b,
         }  # Check that they are in our desired range (see video)
     except Exception as e:
         raise Exception(f"Error occured processing")
