@@ -105,6 +105,32 @@ def determine_calendar_strategy(call_iv, put_iv, ts_slope_0_45, iv30_rv30, vix_l
     return strategy, longer_expiration
 
 
+def check_iv_percentile(stock):
+    iv_history = stock.history(period="1y")["Close"].rolling(30).std().dropna()
+    current_iv30 = (
+        stock.option_chain(stock.options[-1]).calls["impliedVolatility"].mean()
+    )
+    iv_percentile = (current_iv30 - iv_history.min()) / (
+        iv_history.max() - iv_history.min()
+    )
+    return round(iv_percentile * 100, 2)
+
+
+def compare_expected_move_to_past(stock, expected_move):
+    past_moves = (
+        stock.history(period="1y")["Close"].pct_change().abs().rolling(5).mean()
+    )
+    avg_past_earnings_move = past_moves[-10:].mean() * 100
+    return round(expected_move / avg_past_earnings_move, 2)
+
+
+def determine_trade_type(iv_percentile, iv30_rv30, mispriced_expected_move):
+    if iv_percentile < 25 and iv30_rv30 < 1.0 and mispriced_expected_move < 0.8:
+        return "Long Volatility (Buy Pre-Earnings IV, Expect IV Rise)"
+    else:
+        return "Short Volatility (Standard IV Crush Calendar Spread)"
+
+
 def compute_recommendation(ticker, vix):
     try:
         ticker = ticker.strip().upper()
@@ -199,7 +225,7 @@ def compute_recommendation(ticker, vix):
         avg_volume = price_history["Volume"].rolling(30).mean().dropna().iloc[-1]
 
         expected_move = (
-            str(round(straddle / underlying_price * 100, 2)) + "%" if straddle else None
+            round(straddle / underlying_price * 100, 2) if straddle else None
         )
 
         best_strategy, best_expiration = determine_calendar_strategy(
@@ -208,13 +234,19 @@ def compute_recommendation(ticker, vix):
 
         market_cap_b = round(stock.info.get("marketCap", 0) / 1000000000, 2)
 
+        # to check LONG IV oportunities
+        iv_percentile = check_iv_percentile(stock)
+        mispriced_expected_move = compare_expected_move_to_past(stock, expected_move)
+
         return {
             "avg_volume": avg_volume >= 1500000,
             "iv30_rv30": iv30_rv30 >= 1.25,
+            "iv_percentile": iv_percentile,
+            "mispriced_expected_move": mispriced_expected_move,
             "iv30_rv30_value": round(iv30_rv30, 3),
             "ts_slope_0_45": ts_slope_0_45 <= -0.00406,
             "ts_slope_0_45_value": round(ts_slope_0_45, 3),
-            "expected_move": expected_move,
+            "expected_move": str(expected_move) + "%",
             "strategy": best_strategy,
             "expiration": best_expiration,
             "market_cap": market_cap_b,

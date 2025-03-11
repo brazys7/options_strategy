@@ -82,8 +82,6 @@ def main_gui():
                     entry["recommendation"] = recommendation
                     entry["decision"] = take_decision(recommendation)
                 except Exception as e:
-                    # entry['recommendation'] = "ERROR"
-                    # entry['decision'] = "ERROR"
                     print(f"Error processing {entry['symbol']}: {e}")
 
             BATCH_SIZE = 40  # Number of tickers per batch
@@ -108,19 +106,40 @@ def main_gui():
                 )
                 time.sleep(WAIT_TIME)  # Prevent rate limiting
 
-            recommended_tickers = [
+            recommended_short = [
                 f"{entry['symbol']} ({entry['recommendation'].get('market_cap')}B) - IV:{entry['recommendation'].get('iv30_rv30_value')}% - ({entry['recommendation'].get('ts_slope_0_45_value')}%)  - {entry['recommendation'].get('expected_move', 'N/A')}% - {entry['recommendation'].get('expiration', 'N/A')}D, {entry['recommendation'].get('strategy', 'N/A')}"
                 for entry in earnings
                 if entry.get("decision") == "RECOMMEND"
             ]
 
-            other_tickers = [
-                f"{entry['symbol']}"
+            consider_short = [
+                f"{entry['symbol']} ({entry['recommendation'].get('market_cap')}B) - IV:{entry['recommendation'].get('iv30_rv30_value')}% - ({entry['recommendation'].get('ts_slope_0_45_value')}%)  - {entry['recommendation'].get('expected_move', 'N/A')}% - {entry['recommendation'].get('expiration', 'N/A')}D, {entry['recommendation'].get('strategy', 'N/A')}"
                 for entry in earnings
-                if entry.get("decision") != "RECOMMEND"
+                if entry.get("decision") == "CONSIDER"
             ]
 
-            all_tickers = recommended_tickers + ["______"] + other_tickers
+            recommended_long = [
+                f"{entry['symbol']} ({entry['recommendation'].get('market_cap')}B) - IV:{entry['recommendation'].get('iv30_rv30_value')}% - ({entry['recommendation'].get('ts_slope_0_45_value')}%)  - {entry['recommendation'].get('expected_move', 'N/A')}% - {entry['recommendation'].get('mispriced_expected_move', 'N/A')}% - {entry['recommendation'].get('iv_percentile', 'N/A')}% - {entry['recommendation'].get('expiration', 'N/A')}D, {entry['recommendation'].get('strategy', 'N/A')}"
+                for entry in earnings
+                if entry.get("decision") == "RECOMMEND_BUY"
+            ]
+
+            other_tickers = [
+                f"{entry['symbol']} "
+                for entry in earnings
+                if entry.get("decision") == "SKIP"
+            ]
+
+            all_tickers = (
+                ["SHORT"]
+                + recommended_short
+                + ["CONSIDER"]
+                + consider_short
+                + ["LONG"]
+                + recommended_long
+                + ["______"]
+                + other_tickers
+            )
 
             tickers_str = "\n".join(all_tickers)
 
