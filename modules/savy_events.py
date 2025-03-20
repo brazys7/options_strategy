@@ -23,4 +23,9 @@ def fetch_earnings(from_date):
         < datetime.strptime("15:00:00", "%H:%M:%S").time()
     ]
 
-    return after_close + before_open
+    response = after_close + before_open
+
+    # filter by marketCap
+    response = [entry for entry in response if entry.get("marketCap", 0) > 1000000000]
+
+    return response
